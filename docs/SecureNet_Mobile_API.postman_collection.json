@@ -1,0 +1,262 @@
+{
+  "info": {
+    "name": "SecureNet SOC — Mobile API",
+    "description": "Complete API collection for the SecureNet Mobile Gateway.\n\nSetup:\n1. Set the `base_url` variable to your server address\n2. Run 'Login' first — tokens are auto-saved\n3. All other requests auto-use the saved token",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8005" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}" }]
+  },
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.data.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.data.refresh_token);",
+                  "    pm.test('Login successful', function() {",
+                  "        pm.expect(json.success).to.be.true;",
+                  "        pm.expect(json.data.access_token).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@securenet.local\",\n  \"password\": \"your-password-here\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/auth"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.data.access_token);",
+                  "    pm.collectionVariables.set('refresh_token', json.data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/v1/mobile/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🚨 Alerts",
+      "item": [
+        {
+          "name": "List Alerts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/mobile/alerts?per_page=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "mobile", "alerts"],
+              "query": [
+                { "key": "per_page", "value": "20" },
+                { "key": "severity", "value": "critical", "disabled": true },
+                { "key": "status", "value": "new", "disabled": true },
+                { "key": "cursor", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Alert Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/v1/mobile/alerts/{{alert_id}}"
+          }
+        },
+        {
+          "name": "Update Alert Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"acknowledged\",\n  \"analyst_notes\": \"Investigating this alert\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/alerts/{{alert_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚡ Decisions",
+      "item": [
+        {
+          "name": "Submit Decision",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alert_id\": \"paste-alert-id-here\",\n  \"action\": \"APPROVE\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/decision"
+          }
+        },
+        {
+          "name": "List Decisions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/mobile/decisions?per_page=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "mobile", "decisions"],
+              "query": [
+                { "key": "per_page", "value": "20" },
+                { "key": "cursor", "value": "", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Firewall",
+      "item": [
+        {
+          "name": "List Blocked IPs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/mobile/firewall?per_page=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "mobile", "firewall"],
+              "query": [
+                { "key": "per_page", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Block IP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip_address\": \"192.168.1.100\",\n  \"reason\": \"Manual block after investigation\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/firewall/block"
+          }
+        },
+        {
+          "name": "Unblock IP",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/v1/mobile/firewall/block/192.168.1.100"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard",
+      "item": [
+        {
+          "name": "Get Summary Statistics",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/v1/mobile/dashboard/summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/v1/mobile/users/me"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"old-password\",\n  \"new_password\": \"new-strong-password\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/users/me/password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Push Notifications",
+      "item": [
+        {
+          "name": "Register FCM Device",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fcm_token\": \"firebase-device-token-here\",\n  \"device_name\": \"Pixel 8 Pro\",\n  \"platform\": \"android\"\n}"
+            },
+            "url": "{{base_url}}/v1/mobile/devices/register"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💚 Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        }
+      ]
+    }
+  ]
+}

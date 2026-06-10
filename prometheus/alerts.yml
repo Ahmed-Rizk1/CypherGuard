@@ -1,0 +1,208 @@
+# SecureNet SOC — Prometheus Alert Rules
+# Phase 4: Comprehensive coverage for security, ML, and infrastructure
+
+groups:
+  # =================================================================
+  # Critical Pipeline Alerts
+  # =================================================================
+  - name: securenet_critical
+    rules:
+      - alert: HighAlertRate
+        expr: rate(securenet_alerts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High alert rate (>10 alerts/5min)"
+          description: "The system is generating alerts at an unusually high rate. Possible active attack or misconfigured threshold."
+
+      - alert: LLMCircuitOpen
+        expr: securenet_circuit_breaker_state{name="openrouter"} == 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM circuit breaker is OPEN"
+          description: "OpenRouter LLM API is failing. All analyses are using heuristic fallback. Check API key and rate limits."
+
+      - alert: MLPredictionSlow
+        expr: histogram_quantile(0.95, rate(securenet_prediction_duration_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML prediction p95 latency exceeds 100ms"
+
+      - alert: QueueBacklog
+        expr: securenet_queue_depth > 1000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis stream backlog exceeds 1000 messages"
+          description: "A processing bottleneck is causing messages to queue up. Check consumer health."
+
+      - alert: DecisionQueueGrowing
+        expr: securenet_decision_queue_size > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Decision log write queue growing (>500)"
+          description: "The decision_log_writer may be struggling to keep up with DB writes."
+
+  # =================================================================
+  # Security Alerts
+  # =================================================================
+  - name: securenet_security
+    rules:
+      - alert: AuthBruteForce
+        expr: rate(securenet_auth_events_total{event=~".*login_failure.*"}[5m]) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Possible brute-force attack detected"
+          description: "Login failure rate exceeds 30/hour. Investigate source IPs."
+
+      - alert: HighBlockRate
+        expr: rate(securenet_firewall_blocks_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High IP block rate (>5 blocks/5min)"
+          description: "Many IPs are being blocked. Could indicate a coordinated attack."
+
+      - alert: RateLimitSpike
+        expr: rate(securenet_rate_limit_triggers_total[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiting frequently triggered"
+
+      - alert: MobileDecisionTimeout
+        expr: rate(securenet_mobile_timeout_fallbacks_total[15m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mobile decisions timing out frequently"
+          description: "SOC analysts may not be responding to alerts in time."
+
+      - alert: TokenRefreshFailureSpike
+        expr: rate(securenet_auth_events_total{event=~".*refresh_failure.*"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token refresh failures increasing"
+          description: "Users may be experiencing session issues. Check JWT secret rotation."
+
+      - alert: AccountLockoutSpike
+        expr: rate(securenet_auth_events_total{event=~".*lockout.*"}[15m]) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple accounts being locked out"
+          description: "Coordinated brute-force attack or credential stuffing suspected."
+
+  # =================================================================
+  # ML / AI Alerts
+  # =================================================================
+  - name: securenet_ml
+    rules:
+      - alert: FeatureDriftDetected
+        expr: rate(securenet_feature_drift_detected_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Feature drift detected on {{ $labels.feature }}"
+          description: "Runtime feature distribution has diverged from training baseline. Model accuracy may be degraded. Consider retraining."
+
+      - alert: HighFalsePositiveRate
+        expr: >
+          rate(securenet_predictions_total{result="malicious"}[1h])
+          /
+          (rate(securenet_predictions_total{result="malicious"}[1h]) + rate(securenet_predictions_total{result="benign"}[1h]))
+          > 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Malicious prediction rate exceeds 50%"
+          description: "More than half of predictions are malicious. Check for model degradation or attack surge."
+
+      - alert: LLMFallbackOnly
+        expr: >
+          rate(securenet_llm_calls_total{status="fallback"}[15m])
+          /
+          (rate(securenet_llm_calls_total[15m]) + 0.001)
+          > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "90%+ LLM calls using heuristic fallback"
+          description: "LLM service is mostly unavailable. All alerts are classified by rules only."
+
+      - alert: PredictionLatencyDegraded
+        expr: histogram_quantile(0.99, rate(securenet_prediction_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ML prediction p99 latency exceeds 500ms"
+          description: "Model inference is critically slow. Check CPU/memory resources."
+
+  # =================================================================
+  # Infrastructure Alerts
+  # =================================================================
+  - name: securenet_infrastructure
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is DOWN"
+          description: "Prometheus cannot reach {{ $labels.instance }}."
+
+      - alert: HighWebSocketConnections
+        expr: securenet_websocket_connections > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket connection count (>50)"
+
+      - alert: StreamLagHigh
+        expr: securenet_stream_lag > 5000
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis stream consumer lag exceeds 5000"
+          description: "Consumer group {{ $labels.group }} on {{ $labels.stream }} is falling behind."
+
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(securenet_request_duration_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API gateway p95 latency exceeds 2 seconds"
+          description: "Endpoint {{ $labels.endpoint }} is responding slowly."
+
+      - alert: DroppedMessagesHigh
+        expr: rate(securenet_system_dropped_messages_total[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Messages being dropped (>1/sec)"
+          description: "Service {{ $labels.service }} dropping messages. Reason: {{ $labels.reason }}"

@@ -1,0 +1,97 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "🔐 Login Success vs Failure Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rate(securenet_auth_events_total{event=~\".*login_success.*\"}[5m])", "legendFormat": "Success" },
+        { "expr": "rate(securenet_auth_events_total{event=~\".*login_failure.*\"}[5m])", "legendFormat": "Failure" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 15 } } }
+    },
+    {
+      "title": "🛡️ Rate Limit Triggers",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "rate(securenet_rate_limit_triggers_total[5m])", "legendFormat": "{{endpoint}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "🚫 Blocked IPs (Active)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "securenet_blocked_ips_count" }
+      ],
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [
+        { "value": 0, "color": "green" },
+        { "value": 20, "color": "yellow" },
+        { "value": 50, "color": "red" }
+      ]}}}
+    },
+    {
+      "title": "🔥 Firewall Block Rate by Source",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        { "expr": "rate(securenet_firewall_blocks_total[5m])", "legendFormat": "{{source}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "⚡ Alert Severity Distribution (1h)",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "increase(securenet_alerts_total[1h])", "legendFormat": "{{severity}}: {{attack_type}}" }
+      ]
+    },
+    {
+      "title": "📱 Mobile Decision Outcomes",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        { "expr": "increase(securenet_mobile_actions_received_total[1h])", "legendFormat": "{{action}}" }
+      ]
+    },
+    {
+      "title": "⏰ Mobile Decision Timeouts",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 14 },
+      "targets": [
+        { "expr": "increase(securenet_mobile_timeout_fallbacks_total[1h])" }
+      ],
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [
+        { "value": 0, "color": "green" },
+        { "value": 5, "color": "yellow" },
+        { "value": 15, "color": "red" }
+      ]}}}
+    },
+    {
+      "title": "🔑 Token Refresh Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 14 },
+      "targets": [
+        { "expr": "rate(securenet_auth_events_total{event=~\".*token_refresh.*\"}[5m])", "legendFormat": "{{event}}" },
+        { "expr": "rate(securenet_auth_events_total{event=~\".*refresh_failure.*\"}[5m])", "legendFormat": "{{event}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["securenet", "security", "auth"],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SecureNet SOC — Security Dashboard",
+  "uid": "securenet-security",
+  "version": 1
+}

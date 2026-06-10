@@ -1,0 +1,107 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "🧠 ML Prediction Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rate(securenet_predictions_total[1m])", "legendFormat": "{{result}} ({{model_version}})" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 20 } } }
+    },
+    {
+      "title": "⚡ ML Prediction Latency (p50/p95/p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(securenet_prediction_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(securenet_prediction_duration_seconds_bucket[5m]))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, rate(securenet_prediction_duration_seconds_bucket[5m]))", "legendFormat": "p99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "🤖 LLM Call Outcomes",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "increase(securenet_llm_calls_total[1h])", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "title": "🔌 LLM Circuit Breaker State",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 4, "x": 8, "y": 8 },
+      "targets": [
+        { "expr": "securenet_circuit_breaker_state{name=\"openrouter\"}", "legendFormat": "LLM Circuit" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "CLOSED ✅", "color": "green" } }, "type": "value" },
+            { "options": { "1": { "text": "HALF_OPEN ⚠️", "color": "yellow" } }, "type": "value" },
+            { "options": { "2": { "text": "OPEN 🔴", "color": "red" } }, "type": "value" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "📊 LLM Response Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(securenet_llm_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(securenet_llm_duration_seconds_bucket[5m]))", "legendFormat": "p95" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "📈 Feature Drift Events",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "rate(securenet_feature_drift_detected_total[1h])", "legendFormat": "{{feature}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    {
+      "title": "📡 Stream Consumer Lag",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "securenet_stream_lag", "legendFormat": "{{stream}} / {{group}}" }
+      ]
+    },
+    {
+      "title": "🔴 Benign vs Malicious Ratio",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        { "expr": "increase(securenet_predictions_total[6h])", "legendFormat": "{{result}}" }
+      ]
+    },
+    {
+      "title": "🏗️ Decision DB Write Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(securenet_decision_db_write_duration_seconds_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(securenet_decision_db_write_duration_seconds_bucket[5m]))", "legendFormat": "p95" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["securenet", "ml", "ai"],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SecureNet SOC — ML & AI Dashboard",
+  "uid": "securenet-ml",
+  "version": 1
+}

@@ -1,0 +1,25 @@
+.env
+!.env.example
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+ml_engine/model.joblib
+ml_engine/models/*.joblib
+ml_engine/models/*.json
+node_modules/
+dist/
+.DS_Store
+dashboard_logs.json
+audit_log.json
+*.csv
+*.zip
+alembic/versions/__pycache__/
+.idea/
+.vscode/
+AI_ML_DEVELOPMENT_PLAN.md
+AI_ML_DEVELOPMENT_PLAN_FOCUSED.md
+
+# SQLite
+*.sqlite
+*.sqlite-*

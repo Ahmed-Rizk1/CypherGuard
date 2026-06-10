@@ -1,0 +1,49 @@
+# SecureNet SOC — Prometheus scrape configuration
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: "gateway"
+    static_configs:
+      - targets: ["gateway:8000"]
+    metrics_path: "/metrics"
+
+  - job_name: "extractor"
+    static_configs:
+      - targets: ["extractor:8001"]
+    metrics_path: "/metrics"
+
+  - job_name: "ml_engine"
+    static_configs:
+      - targets: ["ml-engine:8002"]
+    metrics_path: "/metrics"
+
+  - job_name: "llm_analyzer"
+    static_configs:
+      - targets: ["llm-analyzer:8003"]
+    metrics_path: "/metrics"
+
+  - job_name: "firewall"
+    static_configs:
+      - targets: ["firewall:8004"]
+    metrics_path: "/metrics"
+
+  - job_name: "mobile_gateway"
+    static_configs:
+      - targets: ["mobile-gateway:8005"]
+    metrics_path: "/metrics"
+
+  - job_name: "decision_engine"
+    static_configs:
+      - targets: ["decision-engine:8006"]
+    metrics_path: "/metrics"

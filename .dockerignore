@@ -1,0 +1,74 @@
+# SecureNet SOC — Docker Build Exclusions
+# Reduces build context size and prevents sensitive files from leaking into images
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+coverage.xml
+.coverage
+
+# Node
+node_modules
+soc-frontend/node_modules
+soc-frontend/dist
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Environment (NEVER include in images)
+.env
+.env.local
+.env.*.local
+
+# Documentation (not needed in runtime images)
+docs/
+*.md
+!README.md
+LICENSE
+
+# Tests (not needed in production images)
+tests/
+*.test.py
+conftest.py
+
+# CI/CD
+.github/
+
+# Archives
+*.zip
+*.tar.gz
+
+# Temporary
+*.log
+*.tmp
+audit_files.txt
+
+# Observability configs (mounted as volumes, not baked in)
+prometheus/
+grafana/
+alertmanager/
+traefik/
+
+# ML training data (large files)
+*.csv
+*.csv.gz
+
+# Gemini workspace
+.gemini/

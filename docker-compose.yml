@@ -1,0 +1,376 @@
+# SecureNet SOC — Docker Compose (Full Stack)
+#
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose logs -f gateway    # Follow gateway logs
+#   docker compose down -v            # Stop and remove volumes
+#
+# First run:
+#   1. Copy .env.example → .env and set your keys
+#   2. Train the ML model: python ml_engine/train_production.py
+#   3. docker compose up -d
+
+
+
+# Shared environment variables for all Python services
+x-common-env: &common-env
+  REDIS_URL: redis://redis:6379/0
+  DATABASE_URL: postgresql+asyncpg://securenet:${POSTGRES_PASSWORD:-securenet}@postgres:5432/securenet
+  JWT_SECRET: ${JWT_SECRET:-CHANGE-ME-use-openssl-rand-hex-32}
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-CHANGE-ME-use-openssl-rand-hex-32}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  # =================================================================
+  # Infrastructure
+  # =================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: securenet-redis
+    ports: ["6379:6379"]
+    volumes: ["redis_data:/data"]
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --notify-keyspace-events Ex
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: securenet-postgres
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_USER: securenet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securenet}
+      POSTGRES_DB: securenet
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U securenet"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: always
+
+  # =================================================================
+  # Backend Pipeline Services
+  # =================================================================
+  extractor:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: extractor
+    container_name: securenet-extractor
+    ports: ["8001:8001"]
+    environment:
+      <<: *common-env
+      FEATURE_WINDOW_SECONDS: "30"
+    depends_on:
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  ml-engine:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: ml_engine
+    container_name: securenet-ml-engine
+    ports: ["8002:8002"]
+    environment:
+      <<: *common-env
+      MODEL_PATH: /app/ml_engine/models/model.joblib
+      MODEL_METADATA_PATH: /app/ml_engine/models/model_metadata.json
+      ALERT_COOLDOWN_SECONDS: "60"
+    volumes:
+      - ./ml_engine/models:/app/ml_engine/models:ro
+    depends_on:
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  llm-analyzer:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: llm_analyzer
+    container_name: securenet-llm-analyzer
+    ports: ["8003:8003"]
+    environment:
+      <<: *common-env
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LLM_TIMEOUT: "15"
+      LLM_CACHE_TTL: "3600"
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  firewall:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: firewall
+    container_name: securenet-firewall
+    ports: ["8004:8004"]
+    environment:
+      <<: *common-env
+      ENABLE_OS_FIREWALL: "0"
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+    # Uncomment for real iptables access:
+    # cap_add: ["NET_ADMIN"]
+
+  # =================================================================
+  # API Gateway (WebSocket + REST)
+  # =================================================================
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: gateway
+    container_name: securenet-gateway
+    ports: ["8000:8000"]
+    environment:
+      <<: *common-env
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:80,http://localhost"
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Mobile Gateway (Human-in-the-Loop mobile API)
+  # =================================================================
+  mobile-gateway:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: mobile_gateway
+    container_name: securenet-mobile-gateway
+    ports: ["8005:8005"]
+    environment:
+      <<: *common-env
+      MOBILE_DECISION_TIMEOUT: ${MOBILE_DECISION_TIMEOUT:-60}
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Control Plane — Decision Engine
+  # =================================================================
+  decision-engine:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: decision_engine
+    container_name: securenet-decision-engine
+    ports: ["8006:8006"]
+    environment:
+      <<: *common-env
+      MOBILE_DECISION_TIMEOUT: ${MOBILE_DECISION_TIMEOUT:-60}
+    depends_on:
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Control Plane — Decision Timeout Listener
+  # =================================================================
+  decision-timeout-listener:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: decision_timeout_listener
+    container_name: securenet-timeout-listener
+    environment:
+      <<: *common-env
+    depends_on:
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Control Plane — Decision Fallback Scanner
+  # =================================================================
+  decision-fallback-scanner:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: decision_fallback_scanner
+    container_name: securenet-fallback-scanner
+    environment:
+      <<: *common-env
+      FALLBACK_SCANNER_INTERVAL: ${FALLBACK_SCANNER_INTERVAL:-10}
+    depends_on:
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Control Plane — Decision Log Writer
+  # =================================================================
+  decision-log-writer:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: decision_log_writer
+    container_name: securenet-log-writer
+    environment:
+      <<: *common-env
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Sniffer (requires host network for packet capture) — LEGACY
+  # In SaaS mode, use the sensor agent + ingest-gateway instead
+  # =================================================================
+  sniffer:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: sniffer
+    container_name: securenet-sniffer
+    network_mode: host
+    privileged: true  # Required for raw packet capture
+    environment:
+      <<: *common-env
+      REDIS_URL: redis://localhost:6379/0  # host network needs localhost
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: always
+    profiles: ["legacy"]  # Only for non-SaaS deployments
+
+  # =================================================================
+  # Ingest Gateway (SaaS sensor data ingestion)
+  # =================================================================
+  ingest-gateway:
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      target: ingest_gateway
+    container_name: securenet-ingest-gateway
+    ports: ["8007:8007"]
+    environment:
+      <<: *common-env
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: always
+
+  # =================================================================
+  # Sensor Agent (optional - for local testing)
+  # =================================================================
+  sensor:
+    build:
+      context: ./sensor
+    container_name: securenet-sensor
+    network_mode: host
+    environment:
+      SECURENET_API_KEY: ${SENSOR_API_KEY:-}
+      SECURENET_ENDPOINT: http://localhost:8007
+    depends_on:
+      - ingest-gateway
+    restart: unless-stopped
+    profiles: ["sensor"]
+
+  # =================================================================
+  # Frontend (Nginx + React SPA)
+  # =================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: securenet-frontend
+    depends_on: [gateway]
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.service=frontend"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  # =================================================================
+  # TLS Termination (Traefik Reverse Proxy)
+  # =================================================================
+  traefik:
+    image: traefik:latest
+    container_name: securenet-traefik
+    environment:
+      - DOCKER_API_VERSION=1.41
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik:/etc/traefik:ro
+      - traefik_certs:/letsencrypt
+    restart: always
+    profiles: ["production"]
+
+  # =================================================================
+  # Observability Stack
+  # =================================================================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: securenet-prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    restart: always
+    profiles: ["observability"]
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: securenet-grafana
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-securenet}
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    restart: always
+    profiles: ["observability"]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: securenet-alertmanager
+    ports: ["9093:9093"]
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    restart: always
+    profiles: ["observability"]
+
+volumes:
+  redis_data:
+  pg_data:
+  prometheus_data:
+  grafana_data:
+  traefik_certs:

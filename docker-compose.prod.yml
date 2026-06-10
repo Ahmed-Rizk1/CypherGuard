@@ -1,0 +1,235 @@
+# SecureNet SOC — Production Override
+#
+# Adds: Redis Sentinel HA, resource limits, deploy replicas,
+#        logging drivers, and production-grade settings.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Or with profiles:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile production --profile observability up -d
+
+services:
+  # =================================================================
+  # Redis HA (Primary + 2 Replicas + 3 Sentinels)
+  # =================================================================
+  redis:
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+        reservations:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  redis-replica:
+    image: redis:7-alpine
+    container_name: securenet-redis-replica
+    command: redis-server --replicaof redis 6379 --appendonly yes
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    restart: always
+
+  redis-sentinel-1:
+    image: redis:7-alpine
+    container_name: securenet-sentinel-1
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./docker/redis-sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      redis: { condition: service_healthy }
+    ports: ["26379:26379"]
+    restart: always
+    profiles: ["redis-ha"]
+
+  redis-sentinel-2:
+    image: redis:7-alpine
+    container_name: securenet-sentinel-2
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./docker/redis-sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: always
+    profiles: ["redis-ha"]
+
+  redis-sentinel-3:
+    image: redis:7-alpine
+    container_name: securenet-sentinel-3
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./docker/redis-sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: always
+    profiles: ["redis-ha"]
+
+  # =================================================================
+  # PostgreSQL Production Tuning
+  # =================================================================
+  postgres:
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+      -c max_connections=100
+      -c log_min_duration_statement=500
+      -c log_statement=ddl
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+  # =================================================================
+  # Backend Services — Resource Limits
+  # =================================================================
+  extractor:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging: &service-logging
+      driver: "json-file"
+      options:
+        max-size: "25m"
+        max-file: "5"
+
+  ml-engine:
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          memory: 256M
+    logging: *service-logging
+
+  llm-analyzer:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging: *service-logging
+
+  firewall:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging: *service-logging
+
+  gateway:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging: *service-logging
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway-api.rule=PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/v1`)"
+      - "traefik.http.routers.gateway-api.entrypoints=websecure"
+      - "traefik.http.routers.gateway-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gateway-api.service=gateway-api"
+      - "traefik.http.services.gateway-api.loadbalancer.server.port=8000"
+      # WebSocket
+      - "traefik.http.routers.gateway-ws.rule=PathPrefix(`/ws`)"
+      - "traefik.http.routers.gateway-ws.entrypoints=websecure"
+      - "traefik.http.routers.gateway-ws.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gateway-ws.service=gateway-ws"
+      - "traefik.http.services.gateway-ws.loadbalancer.server.port=8000"
+
+  mobile-gateway:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging: *service-logging
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mobile-api.rule=PathPrefix(`/mobile`) || PathPrefix(`/v1/mobile`)"
+      - "traefik.http.routers.mobile-api.entrypoints=websecure"
+      - "traefik.http.routers.mobile-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mobile-api.loadbalancer.server.port=8005"
+
+  decision-engine:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging: *service-logging
+
+  decision-timeout-listener:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging: *service-logging
+
+  decision-fallback-scanner:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging: *service-logging
+
+  decision-log-writer:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    logging: *service-logging
+
+
+  # =================================================================
+  # Observability — Production
+  # =================================================================
+  prometheus:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=5GB'
+    logging: *service-logging
+
+  grafana:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging: *service-logging
