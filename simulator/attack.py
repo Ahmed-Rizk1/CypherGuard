@@ -12,9 +12,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MODE = "redis"  # options: "redis", "http"
+MODE = os.getenv("MODE", "redis").lower()  # options: "redis", "http"
 LOAD_TEST_MODE = os.getenv("LOAD_TEST_MODE", "false").lower() == "true"
 MAX_QPS = int(os.getenv("MAX_QPS", "5000"))
+TENANT_ID = os.getenv("TENANT_ID", "00000000-0000-0000-0000-000000000001")
 
 def get_redis_client():
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -79,7 +80,7 @@ async def run_load_test(attack_type, random_ip):
     qps_per_worker = MAX_QPS / num_workers
     duration = 20 # fixed 20s for load test
     
-    payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "1000", "trace_id": ""}
+    payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "1000", "trace_id": "", "tenant_id": TENANT_ID}
     
     print(f"[Simulator] Spawning {num_workers} async workers...")
     tasks = [
@@ -117,28 +118,28 @@ def simulate_attack(attack_type):
     
     if attack_type == "ddos":
         # DDoS Simulation: Max threads, massive packet size (1500 bytes MTU)
-        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "1500"}
-        print(f"[Simulator] Flooding network for 10 seconds from {random_ip}")
+        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "1500", "tenant_id": TENANT_ID}
+        print(f"[Simulator] Flooding network for 120 seconds from {random_ip}")
         for _ in range(50):
-            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 10, 0))
+            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 120, 0))
             t.start()
             threads.append(t)
             
     elif attack_type == "portscan":
         # Port Scan Simulation: High frequency of tiny TCP SYN packets (40 bytes)
-        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "40"}
-        print(f"[Simulator] Firing thousands of tiny SYN packets for 10 seconds from {random_ip}")
+        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "40", "tenant_id": TENANT_ID}
+        print(f"[Simulator] Firing thousands of tiny SYN packets for 120 seconds from {random_ip}")
         for _ in range(40):
-            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 10, 0))
+            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 120, 0))
             t.start()
             threads.append(t)
             
     elif attack_type == "bruteforce":
         # Brute Force Simulation: Moderate frequency, average payload size (e.g. repeated login attempts)
-        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "350"}
-        print(f"[Simulator] Rapidly guessing passwords for 15 seconds from {random_ip}")
+        payload = {"timestamp": "0", "src_ip": random_ip, "dst_ip": "192.168.1.1", "protocol": "TCP", "size": "350", "tenant_id": TENANT_ID}
+        print(f"[Simulator] Rapidly guessing passwords for 120 seconds from {random_ip}")
         for _ in range(25):
-            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 15, 0.05))
+            t = threading.Thread(target=worker_func, args=(*args_prefix, dict(payload), 120, 0.05))
             t.start()
             threads.append(t)
             

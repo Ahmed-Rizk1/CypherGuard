@@ -154,10 +154,17 @@ def validate_llm_response(raw_json: str | dict) -> Optional[dict]:
 # Model fallback chain configuration
 # ---------------------------------------------------------------------------
 
-MODEL_FALLBACK_CHAIN = [
-    {"model": "openai/gpt-4o-mini", "cost_tier": "low"},
-    {"model": "meta-llama/llama-3-8b-instruct:free", "cost_tier": "free"},
-]
+if os.getenv("GROQ_API_KEY"):
+    MODEL_FALLBACK_CHAIN = [
+        {"model": "llama-3.3-70b-versatile", "cost_tier": "free"},
+        {"model": "llama3-8b-8192", "cost_tier": "free"},
+        {"model": "mixtral-8x7b-32768", "cost_tier": "free"},
+    ]
+else:
+    MODEL_FALLBACK_CHAIN = [
+        {"model": "openai/gpt-4o-mini", "cost_tier": "low"},
+        {"model": "meta-llama/llama-3-8b-instruct:free", "cost_tier": "free"},
+    ]
 
 
 def get_model_for_attempt(attempt: int) -> str:

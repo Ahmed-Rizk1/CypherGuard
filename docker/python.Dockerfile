@@ -20,6 +20,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy shared module (used by all services)
 COPY shared/ /app/shared/
+COPY manage.py /app/manage.py
+COPY simulator/ /app/simulator/
+COPY ml_engine/ /app/ml_engine/
+COPY alembic/ /app/alembic/
+COPY alembic.ini /app/alembic.ini
 
 # ===================================================================
 # Service-specific stages

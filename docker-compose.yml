@@ -86,7 +86,7 @@ services:
       MODEL_METADATA_PATH: /app/ml_engine/models/model_metadata.json
       ALERT_COOLDOWN_SECONDS: "60"
     volumes:
-      - ./ml_engine/models:/app/ml_engine/models:ro
+      - ./ml_engine/models:/app/ml_engine/models
     depends_on:
       redis: { condition: service_healthy }
     stop_grace_period: 30s
@@ -102,6 +102,7 @@ services:
     environment:
       <<: *common-env
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       LLM_TIMEOUT: "15"
       LLM_CACHE_TTL: "3600"
     depends_on:
@@ -296,6 +297,8 @@ services:
       context: .
       dockerfile: docker/frontend.Dockerfile
     container_name: securenet-frontend
+    ports:
+      - "80:80"
     depends_on: [gateway]
     restart: always
     labels:

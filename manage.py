@@ -23,7 +23,8 @@ load_dotenv()
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from shared.database import async_session, User
+import uuid
+from shared.database import async_session, User, DEFAULT_TENANT_ID
 from sqlalchemy import select
 
 
@@ -47,6 +48,8 @@ async def create_admin(email: str, password: str, role: str = "admin") -> None:
             existing.password_hash = password_hash
             existing.role = role
             existing.is_active = True
+            if not existing.tenant_id:
+                existing.tenant_id = uuid.UUID(DEFAULT_TENANT_ID)
             await session.commit()
             print(f"✓ Updated existing user: {email} (role={role})")
         else:
@@ -54,6 +57,7 @@ async def create_admin(email: str, password: str, role: str = "admin") -> None:
                 email=email,
                 password_hash=password_hash,
                 role=role,
+                tenant_id=uuid.UUID(DEFAULT_TENANT_ID)
             )
             session.add(user)
             await session.commit()

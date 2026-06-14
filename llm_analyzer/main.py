@@ -53,16 +53,29 @@ load_dotenv()
 logger = setup_logging("llm_analyzer")
 
 SERVICE_START_TIME = time.time()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "15"))
 CACHE_TTL = int(os.getenv("LLM_CACHE_TTL", "3600"))
 
-# OpenRouter client
-client = AsyncOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-    timeout=LLM_TIMEOUT,
-) if OPENROUTER_API_KEY else None
+# LLM Client (prefers Groq, falls back to OpenRouter)
+if GROQ_API_KEY:
+    client = AsyncOpenAI(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=GROQ_API_KEY,
+        timeout=LLM_TIMEOUT,
+    )
+    logger.info("LLM Client initialized with Groq API")
+elif OPENROUTER_API_KEY:
+    client = AsyncOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_API_KEY,
+        timeout=LLM_TIMEOUT,
+    )
+    logger.info("LLM Client initialized with OpenRouter API")
+else:
+    client = None
+    logger.warning("No LLM API keys provided. Running in heuristic fallback mode.")
 
 # Circuit breaker for LLM calls
 llm_circuit = CircuitBreaker(name="openrouter", failure_threshold=3, recovery_timeout=60)

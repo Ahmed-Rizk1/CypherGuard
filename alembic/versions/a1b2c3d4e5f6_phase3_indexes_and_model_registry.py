@@ -17,40 +17,19 @@ depends_on = None
 
 def upgrade() -> None:
     # 1. Composite index for efficient cursor pagination on alerts
-    op.create_index(
-        'idx_alerts_pagination',
-        'alerts',
-        [sa.text('created_at DESC'), sa.text('id DESC')],
-    )
+    op.execute('CREATE INDEX IF NOT EXISTS idx_alerts_pagination ON alerts (created_at DESC, id DESC)')
 
     # 2. Index for blocked IPs by creation date
-    op.create_index(
-        'idx_blocked_ips_created',
-        'blocked_ips',
-        [sa.text('created_at DESC')],
-    )
+    op.execute('CREATE INDEX IF NOT EXISTS idx_blocked_ips_created ON blocked_ips (created_at DESC)')
 
     # 3. Index for ml_predictions by creation date
-    op.create_index(
-        'idx_ml_predictions_created',
-        'ml_predictions',
-        [sa.text('created_at DESC')],
-    )
+    op.execute('CREATE INDEX IF NOT EXISTS idx_ml_predictions_created ON ml_predictions (created_at DESC)')
 
     # 4. Index for audit_log by creation date
-    op.create_index(
-        'idx_audit_log_created',
-        'audit_log',
-        [sa.text('created_at DESC')],
-    )
+    op.execute('CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at DESC)')
 
     # 5. Index for decision_logs alert_id lookup
-    op.create_index(
-        'idx_decision_logs_alert_id',
-        'decision_logs',
-        ['alert_id'],
-        unique=True,
-    )
+    op.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_decision_logs_alert_id ON decision_logs (alert_id)')
 
     # 6. Add model_registry table for tracking deployed models
     op.create_table(
@@ -75,19 +54,15 @@ def upgrade() -> None:
     )
 
     # 8. Add severity index on alerts for filtered queries
-    op.create_index(
-        'idx_alerts_severity',
-        'alerts',
-        ['severity'],
-    )
+    op.execute('CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts (severity)')
 
 
 def downgrade() -> None:
-    op.drop_index('idx_alerts_pagination', table_name='alerts')
-    op.drop_index('idx_blocked_ips_created', table_name='blocked_ips')
-    op.drop_index('idx_ml_predictions_created', table_name='ml_predictions')
-    op.drop_index('idx_audit_log_created', table_name='audit_log')
-    op.drop_index('idx_decision_logs_alert_id', table_name='decision_logs')
-    op.drop_index('idx_alerts_severity', table_name='alerts')
+    op.execute('DROP INDEX IF EXISTS idx_alerts_pagination')
+    op.execute('DROP INDEX IF EXISTS idx_blocked_ips_created')
+    op.execute('DROP INDEX IF EXISTS idx_ml_predictions_created')
+    op.execute('DROP INDEX IF EXISTS idx_audit_log_created')
+    op.execute('DROP INDEX IF EXISTS idx_decision_logs_alert_id')
+    op.execute('DROP INDEX IF EXISTS idx_alerts_severity')
     op.drop_table('model_registry')
     op.drop_column('decision_logs', 'user_id')

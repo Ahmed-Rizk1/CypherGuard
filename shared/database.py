@@ -534,8 +534,7 @@ async def tenant_session(tenant_id: str):
                 # Execute SET LOCAL as the first statement in the session.
                 # asyncpg auto-begins a transaction, so SET LOCAL is scoped.
                 await session.execute(
-                    text("SET LOCAL app.tenant_id = :tid"),
-                    {"tid": tid}
+                    text(f"SET LOCAL app.tenant_id = '{tid}'")
                 )
             yield session
         except Exception:
@@ -571,8 +570,7 @@ async def tenant_session_readonly(tenant_id: str):
         try:
             if tid:
                 await session.execute(
-                    text("SET LOCAL app.tenant_id = :tid"),
-                    {"tid": tid}
+                    text(f"SET LOCAL app.tenant_id = '{tid}'")
                 )
             await session.execute(text("SET TRANSACTION READ ONLY"))
             yield session

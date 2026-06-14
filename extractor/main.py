@@ -100,7 +100,7 @@ async def process_packet(data: dict) -> None:
 
     # Track this IP as recently active (with cap to prevent OOM under DDoS)
     if len(_active_ips) < MAX_ACTIVE_IPS:
-        _active_ips.add(src_ip)
+        _active_ips.add((src_ip, tenant_id or ""))
 
     # 2. Compute features over the window (tenant-scoped)
     features = await redis_manager.get_conn_features(src_ip, FEATURE_WINDOW_SECONDS, tenant_id=tenant_id)
@@ -184,39 +184,52 @@ async def consumer_loop() -> None:
 # ---------------------------------------------------------------------------
 
 async def metrics_publisher_loop() -> None:
-    """Periodically aggregate and publish live traffic metrics."""
+    """Periodically aggregate and publish live traffic metrics (tenant-scoped)."""
     global _active_ips
 
     while True:
         try:
-            total_pps = 0.0
-            total_bps = 0.0
-            active_count = 0
-
-            # Compute per-IP metrics for all recently active IPs
-            stale_ips = set()
-            for ip in list(_active_ips):
-                features = await redis_manager.get_conn_features(ip, FEATURE_WINDOW_SECONDS)
-                if features["packet_count"] > 0:
-                    total_pps += features["packets_per_sec"]
-                    total_bps += features["bytes_per_sec"]
-                    active_count += 1
+            # Group active IPs by tenant
+            tenant_ips = {}
+            for item in list(_active_ips):
+                if isinstance(item, tuple) and len(item) == 2:
+                    ip, tid = item
                 else:
-                    stale_ips.add(ip)
+                    ip, tid = item, ""
+                if tid not in tenant_ips:
+                    tenant_ips[tid] = []
+                tenant_ips[tid].append(ip)
 
-            # Remove stale IPs
-            _active_ips -= stale_ips
+            # For each tenant, compute metrics
+            for tid, ips in tenant_ips.items():
+                total_pps = 0.0
+                total_bps = 0.0
+                active_count = 0
+                stale_ips = set()
 
-            # Publish to Redis for dashboard consumption
-            metrics_data = {
-                "packets_per_sec": round(total_pps, 2),
-                "bytes_per_sec": round(total_bps, 2),
-                "active_connections": active_count,
-            }
-            await redis_manager.set_live_metrics(metrics_data)
+                for ip in ips:
+                    features = await redis_manager.get_conn_features(ip, FEATURE_WINDOW_SECONDS, tenant_id=tid or None)
+                    if features["packet_count"] > 0:
+                        total_pps += features["packets_per_sec"]
+                        total_bps += features["bytes_per_sec"]
+                        active_count += 1
+                    else:
+                        stale_ips.add((ip, tid))
 
-            # Update Prometheus gauges
-            ACTIVE_CONNECTIONS.set(active_count)
+                # Remove stale IPs
+                if stale_ips:
+                    _active_ips -= stale_ips
+
+                # Publish to Redis for dashboard consumption (tenant-scoped)
+                metrics_data = {
+                    "packets_per_sec": round(total_pps, 2),
+                    "bytes_per_sec": round(total_bps, 2),
+                    "active_connections": active_count,
+                }
+                await redis_manager.set_live_metrics(metrics_data, tenant_id=tid or None)
+
+                # Update Prometheus gauges
+                ACTIVE_CONNECTIONS.set(active_count)
 
         except Exception as e:
             logger.error(f"Metrics publisher error: {e}")

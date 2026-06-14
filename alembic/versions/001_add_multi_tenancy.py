@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 # revision identifiers
 revision = '001_add_multi_tenancy'
-down_revision = None
+down_revision = 'a1b2c3d4e5f6'
 branch_labels = None
 depends_on = None
 
