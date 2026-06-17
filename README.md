@@ -10,6 +10,12 @@
 
 **CypherGuard** is a production-grade, event-driven, multi-tenant SaaS Security Operations Center (SOC) and Intrusion Detection System (IDS). It captures real-time network traffic, classifies threats with Machine Learning (scikit-learn) + Generative AI (GPT-4o), enables human-in-the-loop decisions through a Flutter mobile app (`ThreatEye`) and React Web dashboard, and guarantees strict tenant isolation under Row-Level Security (RLS) policies.
 
+## 🎥 System Demo Video
+
+<video src="2026-06-14%2019-21-13.mp4" width="100%" controls></video>
+
+_If the video player above does not load, you can view or download the demo video directly [here](2026-06-14%2019-21-13.mp4)._
+
 ---
 
 ## 🏗️ Architecture & Data Flow

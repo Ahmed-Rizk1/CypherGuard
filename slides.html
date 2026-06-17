@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CypherGuard: The Digital Border Guard</title>
+  <!-- Google Fonts: Outfit (headings) & JetBrains Mono (tech/code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@300;500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons (standard client-side script) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg-primary: #070a13;
+      --bg-card: rgba(15, 22, 42, 0.65);
+      --border-color: rgba(255, 255, 255, 0.08);
+      
+      --accent-cyan: #00f0ff;
+      --accent-purple: #bc34fa;
+      --accent-red: #ff3b30;
+      --accent-green: #34c759;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      
+      --font-outfit: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      --glass-backdrop: blur(12px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-outfit);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Grid background */
+    .bg-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .bg-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(188, 52, 250, 0.08) 0%, transparent 70%);
+      top: -200px;
+      right: -200px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Slides Container */
+    .presentation-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      z-index: 10;
+    }
+
+    .slide {
+      position: absolute;
+      width: 90%;
+      max-width: 1100px;
+      height: 80%;
+      max-height: 680px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: var(--glass-backdrop);
+      padding: 3rem;
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+      pointer-events: none;
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+      z-index: 20;
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .slide-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 30%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 1.1rem;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 0.25rem;
+    }
+
+    .slide-number {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0.5rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Slide Content */
+    .slide-content {
+      flex: 1;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      justify-content: space-between;
+      overflow-y: auto;
+      padding: 1rem 0;
+    }
+
+    .slide-text-side {
+      flex: 1.2;
+    }
+
+    .slide-visual-side {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 250px;
+    }
+
+    /* Visual Components */
+    .visual-wrapper {
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 1.5rem;
+    }
+
+    /* Speaker Notes Trigger & Panel */
+    .speaker-notes-toggle {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      background: rgba(15, 22, 42, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.75rem 1.25rem;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      z-index: 100;
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s ease;
+    }
+
+    .speaker-notes-toggle:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--accent-cyan);
+    }
+
+    .speaker-notes-panel {
+      position: fixed;
+      bottom: 5.5rem;
+      left: 1.5rem;
+      width: 400px;
+      max-height: 300px;
+      background: rgba(10, 15, 28, 0.95);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: none;
+      z-index: 90;
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: var(--glass-backdrop);
+      overflow-y: auto;
+    }
+
+    .speaker-notes-panel.active {
+      display: block;
+    }
+
+    .speaker-notes-panel h4 {
+      font-size: 1rem;
+      color: var(--accent-cyan);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .speaker-notes-panel p {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text-main);
+    }
+
+    /* Navigation Controls */
+    .controls {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      z-index: 100;
+      background: rgba(15, 22, 42, 0.8);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
+      border-radius: 16px;
+      box-shadow: var(--glass-shadow);
+    }
+
+    .nav-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Bullet list styles */
+    .bullet-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .bullet-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .bullet-icon {
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+
+    .bullet-text h4 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--text-main);
+    }
+
+    .bullet-text p {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Large highlights */
+    .highlight-box {
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 4px solid var(--accent-cyan);
+      padding: 1.5rem;
+      border-radius: 0 16px 16px 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .highlight-box.purple {
+      border-left-color: var(--accent-purple);
+    }
+
+    .highlight-box.red {
+      border-left-color: var(--accent-red);
+    }
+
+    .highlight-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+    }
+
+    .highlight-desc {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* =================================================================
+       CUSTOM INTERACTIVE WIDGETS FOR SLIDES
+       ================================================================= */
+    
+    /* Interactive radar/setting grid */
+    .grid-node-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 15px;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .grid-node {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .grid-node:hover {
+      background: rgba(0, 240, 255, 0.1);
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+    }
+    .grid-node.hacked {
+      background: rgba(255, 59, 48, 0.1);
+      border-color: var(--accent-red);
+      animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+    }
+
+    /* Pipeline Step Widget */
+    .pipeline-view {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+    }
+    .pipe-step-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      transition: all 0.3s ease;
+    }
+    .pipe-step-card.active {
+      border-color: var(--accent-cyan);
+      background: rgba(0,240,255,0.03);
+    }
+    .pipe-step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+    .pipe-step-card.active .pipe-step-icon {
+      background: var(--accent-cyan);
+      color: var(--bg-primary);
+    }
+
+    /* Sliding Window simulation */
+    .window-sim-box {
+      width: 100%;
+      height: 200px;
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      background: #090e1a;
+    }
+    .window-slider {
+      position: absolute;
+      width: 120px;
+      height: calc(100% - 20px);
+      border: 2px solid var(--accent-cyan);
+      background: rgba(0, 240, 255, 0.05);
+      border-radius: 10px;
+      top: 10px;
+      left: 10px;
+      transition: left 3s linear;
+      box-shadow: 0 0 15px rgba(0,240,255,0.2);
+    }
+    .packet-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      position: absolute;
+    }
+
+    /* Grid layout for 11 footprints */
+    .footprint-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+    }
+    .footprint-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    .footprint-card:hover, .footprint-card.active {
+      border-color: var(--accent-purple);
+      background: rgba(188, 52, 250, 0.05);
+      transform: scale(1.02);
+    }
+    .footprint-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    /* Interactive Decision Tree Sorting Machine */
+    .tree-machine {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      width: 100%;
+    }
+    .node-slot {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      position: relative;
+    }
+    .node-slot.active {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0,240,255,0.2);
+    }
+    .tree-packet {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      position: absolute;
+      top: -20px;
+      left: calc(50% - 8px);
+      transition: all 0.8s ease;
+      opacity: 0;
+    }
+    .btn-action {
+      background: linear-gradient(135deg, var(--accent-cyan) 0%, #00b0ff 100%);
+      color: var(--bg-primary);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-outfit);
+      transition: all 0.3s ease;
+    }
+    .btn-action:hover {
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* 3-Tier tab system */
+    .tab-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 1rem;
+    }
+    .tab-headers {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+    .tab-header {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-family: var(--font-outfit);
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-header.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+    }
+    .tab-pane {
+      display: none;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Commander Watchdog Panel */
+    .watchdog-circle {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      border: 4px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent-red);
+    }
+    .watchdog-circle::before {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 4px solid var(--accent-red);
+      border-top-color: transparent;
+      animation: spin 3s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Live Simulation Dashboard Chart */
+    .sim-chart-container {
+      width: 100%;
+      height: 200px;
+      background: #090e1a;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sim-chart-bars {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      margin-top: 10px;
+      height: 140px;
+    }
+    .sim-chart-bar {
+      flex: 1;
+      background: var(--accent-cyan);
+      height: 10%;
+      border-radius: 2px 2px 0 0;
+      transition: height 0.5s ease;
+    }
+    .sim-chart-bar.purple {
+      background: var(--accent-purple);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <!-- Slides Container -->
+  <div class="presentation-container">
+
+    <!-- SLIDE 1: Title -->
+    <div class="slide active" id="slide-1">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT I: THE CHALLENGE</div>
+          <h2 class="slide-title">CypherGuard: The Digital Border Guard</h2>
+        </div>
+        <div class="slide-number">01 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box">
+            <div class="highlight-title">A Security Crisis in Real Time</div>
+            <p class="highlight-desc">Modern cloud applications handle millions of connection requests every minute. Spotting a single malicious attacker within this sea of packets is like finding a specific lockpick carrying thief in a stadium crowd.</p>
+          </div>
+          <p style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6;">
+            This presentation shows our journey in building a hybrid cyber security gateway combining rapid Machine Learning anomalies filtering with generative AI explanation models.
+          </p>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper">
+            <div class="grid-node-container" id="grid-nodes">
+              <!-- Dynamically populated nodes -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: The Signature Trap -->
+    <div class="slide" id="slide-2">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT I: THE CHALLENGE</div>
+          <h2 class="slide-title">The Signature Trap</h2>
+        </div>
+        <div class="slide-number">02 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="lock" style="color: var(--accent-red);"></i>
+              <div class="bullet-text">
+                <h4>Rigid Signature Checks Fail</h4>
+                <p>Traditional firewalls look for exact strings (signatures). If a hacker changes a single character in their script or launches a novel "Zero-Day" attack, signature databases fail instantly.</p>
+              </div>
+            </li>
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="eye-off" style="color: var(--accent-purple);"></i>
+              <div class="bullet-text">
+                <h4>The "Black Box" Problem of AI</h4>
+                <p>Simple Machine Learning anomaly detection is fast but acts as a black box. It blocks the user, but security teams cannot tell *why* it blocked them, causing delay in alert resolution.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction: column; gap: 1rem;">
+            <div style="font-size: 5rem; color: var(--accent-red);" id="lock-icon-container">
+              <i data-lucide="lock" style="width: 100px; height: 100px;"></i>
+            </div>
+            <button class="btn-action" onclick="toggleLock()">Simulate Attack Break-In</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: The Blueprint -->
+    <div class="slide" id="slide-3">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">THE HERO ARRIVES</div>
+          <h2 class="slide-title">The Three-Stage Blueprint</h2>
+        </div>
+        <div class="slide-number">03 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <p style="font-size: 1.15rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem;">
+            Our solution separates responsibilities across an event-driven, decoupled pipeline to solve both throughput and explainability issues:
+          </p>
+          <div class="pipeline-view">
+            <div class="pipe-step-card active" id="pipe-card-1">
+              <div class="pipe-step-icon"><i data-lucide="eye"></i></div>
+              <div>
+                <h4 style="font-size:1.1rem; font-weight:700;">Stage 1: The Lookout (Extractor)</h4>
+                <p style="font-size:0.9rem; color: var(--text-muted);">Extracts 11 footstep metrics over a 30s sliding window</p>
+              </div>
+            </div>
+            <div class="pipe-step-card" id="pipe-card-2">
+              <div class="pipe-step-icon"><i data-lucide="shield"></i></div>
+              <div>
+                <h4 style="font-size:1.1rem; font-weight:700;">Stage 2: The Gatekeeper (ML Engine)</h4>
+                <p style="font-size:0.9rem; color: var(--text-muted);">Classifies footprints into Benign or Malicious in 5ms</p>
+              </div>
+            </div>
+            <div class="pipe-step-card" id="pipe-card-3">
+              <div class="pipe-step-icon"><i data-lucide="fingerprint"></i></div>
+              <div>
+                <h4 style="font-size:1.1rem; font-weight:700;">Stage 3: The Detective (LLM Analyzer)</h4>
+                <p style="font-size:0.9rem; color: var(--text-muted);">Generates structured plain-English threat summaries</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper">
+            <div style="text-align: center; color: var(--accent-cyan);" id="pipeline-svg">
+              <!-- Simple active connection map -->
+              <i data-lucide="workflow" style="width: 120px; height: 120px; animation: pulse 2s infinite;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Act I: The Lookout -->
+    <div class="slide" id="slide-4">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT II: THE LOOKOUT</div>
+          <h2 class="slide-title">Ingestion & The Sliding Window</h2>
+        </div>
+        <div class="slide-number">04 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box">
+            <div class="highlight-title">Redis Sorted Sets (ZSET)</div>
+            <p class="highlight-desc">To avoid reading massive historical databases, each source IP keeps its own sliding window in Redis memory. Scores correspond to packet timestamps, enabling real-time range-based calculations.</p>
+          </div>
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="arrow-right-left" style="color: var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>Auto-Trimming Tail</h4>
+                <p>Every packet arrival runs a Redis transaction to trim packets older than 30s (`ZREMRANGEBYSCORE`).</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction: column; gap: 1rem;">
+            <div class="window-sim-box">
+              <div class="window-slider" id="slider-block"></div>
+              <!-- Sample packet dots inside and outside -->
+              <div class="packet-dot" style="left: 30px; top: 80px;"></div>
+              <div class="packet-dot" style="left: 70px; top: 120px;"></div>
+              <div class="packet-dot" style="left: 100px; top: 60px;"></div>
+              <div class="packet-dot" style="left: 170px; top: 140px; background: var(--text-muted);"></div>
+              <div class="packet-dot" style="left: 240px; top: 40px; background: var(--text-muted);"></div>
+            </div>
+            <button class="btn-action" onclick="slideWindow()">Slide Window Timeline</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: The 11 Footprint Signatures -->
+    <div class="slide" id="slide-5">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT II: THE LOOKOUT</div>
+          <h2 class="slide-title">The 11 footprint Signatures</h2>
+        </div>
+        <div class="slide-number">05 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <p style="font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">
+            Click on any footprint to see what the Lookout measures inside the sliding window to identify hidden scripts:
+          </p>
+          <div class="footprint-grid">
+            <div class="footprint-card active" onclick="showFootprint(0, this)">
+              <div class="footprint-title">Flow Packets/s</div>
+            </div>
+            <div class="footprint-card" onclick="showFootprint(1, this)">
+              <div class="footprint-title">Flow Bytes/s</div>
+            </div>
+            <div class="footprint-card" onclick="showFootprint(2, this)">
+              <div class="footprint-title">Avg Packet Size</div>
+            </div>
+            <div class="footprint-card" onclick="showFootprint(3, this)">
+              <div class="footprint-title">Flow Duration</div>
+            </div>
+            <div class="footprint-card" onclick="showFootprint(4, this)">
+              <div class="footprint-title">Packet Size Std</div>
+            </div>
+            <div class="footprint-card" onclick="showFootprint(5, this)">
+              <div class="footprint-title">IAT Mean / Std</div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" id="footprint-detail-panel" style="flex-direction:column; justify-content:center; align-items:flex-start; text-align:left;">
+            <h4 style="font-size: 1.3rem; color: var(--accent-purple); margin-bottom: 0.5rem;" id="footprint-name">Flow Packets/s</h4>
+            <p style="font-size: 1rem; color: var(--text-main); font-family: var(--font-mono); margin-bottom: 0.75rem;" id="footprint-key">`packets_per_sec`</p>
+            <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.5;" id="footprint-desc">Measures the frequency of packets. Spikes dramatically during port scans and SYN floods.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Act II: The Gatekeeper (Standardization) -->
+    <div class="slide" id="slide-6">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT III: THE GATEKEEPER</div>
+          <h2 class="slide-title">Leveling the Playing Field</h2>
+        </div>
+        <div class="slide-number">06 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box purple">
+            <div class="highlight-title">StandardScaler (Z-Score)</div>
+            <p class="highlight-desc">Features have radically different bounds. Small Packet Ratio lies in [0, 1], while Flow Bytes/s ranges in millions. StandardScaler centers each feature around a mean of 0 and standard deviation of 1.</p>
+          </div>
+          <p style="font-size:1.05rem; color: var(--text-muted); line-height:1.6;">
+            This normalization prevents high-volume features from drowning out critical, small-scale timing features (such as IAT metrics) during calculations.
+          </p>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction: column; gap: 1rem;">
+            <div style="font-family: var(--font-mono); font-size: 1.5rem; color: var(--accent-purple);">
+              z = (x - &mu;) / &sigma;
+            </div>
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+              [ 1500B, 1.2s, 0.94 ] ➔ [ 1.4, -0.8, 2.1 ]
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: The Classifier -->
+    <div class="slide" id="slide-7">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT III: THE GATEKEEPER</div>
+          <h2 class="slide-title">The Random Forest Guard</h2>
+        </div>
+        <div class="slide-number">07 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="trees" style="color: var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>Ensemble of Decision Trees</h4>
+                <p>100 independent decision trees query specific feature thresholds (e.g. "Is IAT std < 0.05?"). Each tree casts a vote.</p>
+              </div>
+            </li>
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="percent" style="color: var(--accent-green);"></i>
+              <div class="bullet-text">
+                <h4>Confidence Score</h4>
+                <p>The final classification is accompanied by a confidence score representing the consensus ratio among the 100 trees.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper">
+            <div class="tree-machine">
+              <div class="node-slot" id="slot-1">Is Packet Size > 1000B?
+                <div class="tree-packet" id="p-dot"></div>
+              </div>
+              <div style="display:flex; gap:30px;">
+                <div class="node-slot" id="slot-2">Is IAT Std < 0.1s?</div>
+                <div class="node-slot" id="slot-3">Is Rate > 500 pps?</div>
+              </div>
+              <button class="btn-action" onclick="runSortingMachine()">Run Test Sample</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Target Practice -->
+    <div class="slide" id="slide-8">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT III: THE GATEKEEPER</div>
+          <h2 class="slide-title">Target Practice</h2>
+        </div>
+        <div class="slide-number">08 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box">
+            <div class="highlight-title">CICIDS2017 Dataset</div>
+            <p class="highlight-desc">Trained using the benchmark intrusion detection dataset, featuring full-day network captures containing simulated DDoS, Port Scans, and Brute Force attacks.</p>
+          </div>
+          <div style="display:flex; gap:20px; margin-top:1.5rem;">
+            <div style="flex:1; background:rgba(255,255,255,0.02); padding:1rem; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+              <h3 style="color:var(--accent-cyan); font-size:1.8rem; font-family:var(--font-mono)">98.6%</h3>
+              <p style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase;">F1-Score achieved</p>
+            </div>
+            <div style="flex:1; background:rgba(255,255,255,0.02); padding:1rem; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+              <h3 style="color:var(--accent-purple); font-size:1.8rem; font-family:var(--font-mono)">&lt;20ms</h3>
+              <p style="color:var(--text-muted); font-size:0.85rem; text-transform:uppercase;">Inference Latency</p>
+            </div>
+          </div>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:10px;">
+            <div style="font-size: 1.1rem; font-weight:600; color:var(--text-muted);">Class Balancing Weights</div>
+            <!-- Simple weight graphic -->
+            <div style="display:flex; align-items:flex-end; gap:20px; height:120px; width:150px;">
+              <div style="width:40px; height:100px; background:var(--accent-cyan); border-radius:4px; display:flex; align-items:center; justify-content:center; color:#000; font-weight:bold; font-size:0.8rem;">Benign</div>
+              <div style="width:40px; height:20px; background:var(--accent-red); border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:0.8rem;">Attack</div>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">`class_weight="balanced"` counters data imbalance in training</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Concept Drift Detection -->
+    <div class="slide" id="slide-9">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT III: THE GATEKEEPER</div>
+          <h2 class="slide-title">Live Concept Drift Detection</h2>
+        </div>
+        <div class="slide-number">09 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box purple">
+            <div class="highlight-title">Kullback-Leibler (KL) Divergence</div>
+            <p class="highlight-desc">Compares live feature histograms (batches of 1,000 samples) against training baselines in `feature_baselines.json`. If KL divergence exceeds 0.1, it triggers a model retraining alert.</p>
+          </div>
+          <ul class="bullet-list" style="margin-top:1rem;">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="sliders" style="color: var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>Laplace Smoothing</h4>
+                <p>Adds 1e-10 to all bins to prevent divide-by-zero or log-of-zero errors in mathematically calculating entropy drift.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:1.5rem;">
+            <div id="drift-status" style="padding:10px 20px; border-radius:20px; font-family:var(--font-mono); background:rgba(52,199,89,0.1); border:1px solid var(--accent-green); color:var(--accent-green); text-align:center; font-size:0.95rem;">
+              KL Divergence: 0.024 (Stable)
+            </div>
+            <button class="btn-action" onclick="simulateDrift()">Inject Traffic Drift</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: Swapping Weapons -->
+    <div class="slide" id="slide-10">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT III: THE GATEKEEPER</div>
+          <h2 class="slide-title">Swapping Weapons in Battle</h2>
+        </div>
+        <div class="slide-number">10 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="eye" style="color: var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>5-Second File Watcher</h4>
+                <p>A thread watches `model.joblib`. If the modification time changes, a reload is triggered.</p>
+              </div>
+            </li>
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="shuffle" style="color: var(--accent-purple);"></i>
+              <div class="bullet-text">
+                <h4>Atomic Pointer Swap</h4>
+                <p>The new model is loaded into a separate RAM space. Once fully verified, the model pointer is swapped in less than 1 millisecond. The old model is deleted by the garbage collector.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:1.5rem;">
+            <div id="weapon-status" style="padding:10px 20px; border-radius:20px; font-family:var(--font-mono); background:rgba(52,199,89,0.1); border:1px solid var(--accent-green); color:var(--accent-green);">
+              Active Model: model.joblib (v1)
+            </div>
+            <button class="btn-action" onclick="simulateModelSwap()">Deploy New Model (v2)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 11: The AI Detective -->
+    <div class="slide" id="slide-11">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT IV: THE DETECTIVE</div>
+          <h2 class="slide-title">The AI Detective & 3-Tier Strategy</h2>
+        </div>
+        <div class="slide-number">11 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <p style="font-size:1rem; color:var(--text-muted); line-height:1.5; margin-bottom:1rem;">
+            The ML Classifier is fast but mute. The **LLM Detective** translates statistics into JSON threat briefs. We use a 3-tier fallback to keep it cheap and reliable:
+          </p>
+          <div class="tab-container">
+            <div class="tab-headers">
+              <button class="tab-header active" onclick="switchTab(0, this)">Tier 1: Cache</button>
+              <button class="tab-header" onclick="switchTab(1, this)">Tier 2: API</button>
+              <button class="tab-header" onclick="switchTab(2, this)">Tier 3: Heuristics</button>
+            </div>
+            <div class="tab-pane active" id="pane-0">
+              <h4>Instant & Free Response</h4>
+              <p style="margin-top:0.3rem;">We round features into buckets. If an identical profile has occurred before, we fetch the response instantly from Redis, skipping external API expenses.</p>
+            </div>
+            <div class="tab-pane" id="pane-1">
+              <h4>Groq/OpenRouter API Connection</h4>
+              <p style="margin-top:0.3rem;">Queries `gpt-4o-mini` with fallback to `llama-3-8b`. Temperature is set to 0.1 for consistency. Output is validated against a Pydantic schema.</p>
+            </div>
+            <div class="tab-pane" id="pane-2">
+              <h4>Local Fallback Rule Engine</h4>
+              <p style="margin-top:0.3rem;">If the API is offline or timeout occurs, rule-based python heuristics evaluate values locally to assign attack labels instantly.</p>
+            </div>
+          </div>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="background:#090e1a; border-color:var(--accent-purple); flex-direction:column; justify-content:center; align-items:stretch;">
+            <div style="width:100%; font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">
+              <span style="color:var(--accent-cyan); font-weight:bold;">{</span><br>
+              &nbsp;&nbsp;&quot;attack_type&quot;: <span style="color:var(--accent-purple);">&quot;DDoS Volumetric Flood&quot;</span>,<br>
+              &nbsp;&nbsp;&quot;severity&quot;: <span style="color:var(--accent-purple);">&quot;critical&quot;</span>,<br>
+              &nbsp;&nbsp;&quot;explanation&quot;: <span style="color:var(--text-main);">&quot;High-rate traffic at 5,200 pkt/s saturated bandwidth.&quot;</span>,<br>
+              &nbsp;&nbsp;&quot;recommendation&quot;: <span style="color:var(--accent-green);">&quot;Apply network-level rate limit.&quot;</span><br>
+              <span style="color:var(--accent-cyan); font-weight:bold;">}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- SLIDE 12: Profile Caching -->
+    <div class="slide" id="slide-12">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT IV: THE DETECTIVE</div>
+          <h2 class="slide-title">Smart Profile Caching</h2>
+        </div>
+        <div class="slide-number">12 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box">
+            <div class="highlight-title">Bucketing Features</div>
+            <p class="highlight-desc">Continuous parameters rarely match exactly. By rounding values into bins (e.g. rounding packets/sec to the nearest 500, average size to the nearest 200), we group similar attacks under one cache key.</p>
+          </div>
+          <p style="font-size:1.05rem; color:var(--text-muted); line-height:1.6;">
+            This MD5 hash compression yields high cache hit rates and cuts active API expenditure significantly.
+          </p>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:1rem;">
+            <div style="font-family:var(--font-mono); font-size:0.9rem; color:var(--accent-cyan);">
+              Raw (5211 pps, 1345B) ➔ Round (5000, 1400)
+            </div>
+            <i data-lucide="arrow-down" style="color:var(--text-muted);"></i>
+            <div style="font-family:var(--font-mono); font-size:0.9rem; color:var(--accent-purple);">
+              MD5 Hash ➔ cache_key_a1b2
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 13: Protective Cooldown -->
+    <div class="slide" id="slide-13">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT IV: THE DETECTIVE</div>
+          <h2 class="slide-title">DDoS Cooldown Lock</h2>
+        </div>
+        <div class="slide-number">13 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="shield-alert" style="color: var(--accent-red);"></i>
+              <div class="bullet-text">
+                <h4>Preventing Flood Exhaustion</h4>
+                <p>During a DDoS flood at 5,000 packets per second, triggering an LLM request for every packet alert would exhaust API rate limits and budget within seconds.</p>
+              </div>
+            </li>
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="hourglass" style="color: var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>60-Second Cooldown</h4>
+                <p>We lock LLM calls for an IP for 60 seconds (`SET NX EX`). The firewall continues to block the traffic, but we suppress duplicate detective analysis.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:1rem;">
+            <div style="font-size:3.5rem; font-family:var(--font-mono); color:var(--accent-red);" id="cooldown-timer">
+              LOCK: ACTIVE
+            </div>
+            <p style="color:var(--text-muted); font-size:0.9rem;">API Calls Blocked | Firewall Active</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 14: Act IV: The Commander -->
+    <div class="slide" id="slide-14">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT V: THE COMMANDER</div>
+          <h2 class="slide-title">Human-in-the-Loop & Watchdog</h2>
+        </div>
+        <div class="slide-number">14 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <div class="highlight-box red">
+            <div class="highlight-title">Decoupling Autonomy and Safety</div>
+            <p class="highlight-desc">When a threat is flagged, a Redis watchdog key is initialized with a 60-second Time-to-Live (TTL). The analyst receives an alert and holds veto power.</p>
+          </div>
+          <p style="font-size:1rem; color:var(--text-muted); line-height:1.6;">
+            Analysts can block manually (A). If they do not respond within 60 seconds, the Redis expiration watch triggers an auto-block (B), ensuring security.
+          </p>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="flex-direction:column; gap:1.5rem;">
+            <div class="watchdog-circle" id="watchdog-time">60s</div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn-action" style="background:var(--accent-green);" onclick="analystBlock()">Manual Block</button>
+              <button class="btn-action" style="background:var(--text-muted); color:#000;" onclick="resetWatchdog()">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 15: The Climax (Simulation) -->
+    <div class="slide" id="slide-15">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">ACT V: THE CLIMAX</div>
+          <h2 class="slide-title">Live Simulation</h2>
+        </div>
+        <div class="slide-number">15 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <p style="font-size:1.1rem; color:var(--text-muted); line-height:1.6; margin-bottom:1.5rem;">
+            Press the button to simulate an active attack flood. Observe the pipeline response and dynamic charts:
+          </p>
+          <button class="btn-action" onclick="simulateAttackChart()">Trigger DDoS Attack</button>
+          <div style="margin-top:1.5rem; display:flex; gap:10px;">
+            <div style="padding:10px; background:rgba(0,240,255,0.05); border:1px solid var(--accent-cyan); border-radius:8px; flex:1; text-align:center;">
+              <span id="pps-lbl" style="font-family:var(--font-mono); font-weight:bold; font-size:1.1rem;">0</span> pps
+            </div>
+            <div style="padding:10px; background:rgba(188,52,250,0.05); border:1px solid var(--accent-purple); border-radius:8px; flex:1; text-align:center;">
+              <span id="bps-lbl" style="font-family:var(--font-mono); font-weight:bold; font-size:1.1rem;">0</span> kb/s
+            </div>
+          </div>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper">
+            <div class="sim-chart-container">
+              <div style="font-size:0.8rem; font-weight:bold; color:var(--text-muted);">LIVE PACKET INGESTION RATE</div>
+              <div class="sim-chart-bars" id="bar-chart">
+                <div class="sim-chart-bar" style="height: 10%;"></div>
+                <div class="sim-chart-bar" style="height: 12%;"></div>
+                <div class="sim-chart-bar" style="height: 8%;"></div>
+                <div class="sim-chart-bar" style="height: 15%;"></div>
+                <div class="sim-chart-bar" style="height: 9%;"></div>
+                <div class="sim-chart-bar" style="height: 11%;"></div>
+                <div class="sim-chart-bar" style="height: 14%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 16: End Credits -->
+    <div class="slide" id="slide-16">
+      <div class="slide-header">
+        <div>
+          <div class="slide-subtitle">SUMMARY</div>
+          <h2 class="slide-title">Conclusion & Key Takeaways</h2>
+        </div>
+        <div class="slide-number">16 / 16</div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-text-side">
+          <ul class="bullet-list">
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="cpu" style="color:var(--accent-cyan);"></i>
+              <div class="bullet-text">
+                <h4>Speed + Explainability</h4>
+                <p>Enables lightweight, fast binary checking locally while augmenting with natural language explanations when incidents occur.</p>
+              </div>
+            </li>
+            <li class="bullet-item">
+              <i class="bullet-icon" data-lucide="shield-check" style="color:var(--accent-green);"></i>
+              <div class="bullet-text">
+                <h4>Resilient and Cost-Controlled</h4>
+                <p>Caching, cooldowns, and rule fallbacks prevent API dependency pitfalls and costly token spikes.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="slide-visual-side">
+          <div class="visual-wrapper" style="background:radial-gradient(circle, rgba(0,240,255,0.05) 0%, transparent 80%); border-color:var(--accent-cyan);">
+            <i data-lucide="shield" style="width:120px; height:120px; color:var(--accent-cyan); animation: pulse 2.5s infinite;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Controls -->
+  <div class="controls">
+    <button class="nav-btn" onclick="prevSlide()"><i data-lucide="chevron-left"></i></button>
+    <button class="nav-btn" onclick="nextSlide()"><i data-lucide="chevron-right"></i></button>
+  </div>
+
+  <!-- Speaker Notes Toggle & Panel -->
+  <button class="speaker-notes-toggle" onclick="toggleSpeakerNotes()">
+    <i data-lucide="message-square"></i> Speaker Notes
+  </button>
+  <div class="speaker-notes-panel" id="notes-panel">
+    <h4>Slide Notes</h4>
+    <p id="notes-content">Welcome to CypherGuard presentation. Use left/right keys to navigate.</p>
+  </div>
+
+  <script>
+    // Speaker notes source matching the storyboard
+    const speakerNotes = [
+      "Imagine a thriving digital city. Every second, thousands of citizens enter the gates. Hidden in this crowd is a digital thief planning a heist. Our story is about how we spot the thief instantly, explain their method, and shut the gates.",
+      "Traditional firewalls look for exact signatures, but novel Zero-Day attacks easily bypass them. While machine learning can filter anomalies, it acts as a black box—blocking threats but leaving analysts in the dark about the 'why'.",
+      "To resolve this, we created a three-stage pipeline: Stage 1 lookout measures footprints; Stage 2 guard classifications decide in 5ms; Stage 3 detective generates explaining briefs.",
+      "To avoid slow database reads, each IP keeps its packet history in a Redis sorted set. Old logs are automatically trimmed after 30s. We cap sets to avoid memory overload under DDoS.",
+      "We measure 11 behavioral footprints. Automated scripts display robotic regularities, firing packets at constant intervals with consistent size profiles. Click items on the grid to inspect definitions.",
+      "clues have vast scale gaps—ratios lie in [0,1], while rates lie in millions. StandardScaler centers each column around a mean of 0 and std of 1 so timing metrics aren't drowned out by volume.",
+      "We deploy 100 decision trees. They vote. If 94 trees vote 'Malicious', we classify the threat with a 94% confidence score. Run a test sample to watch a packet travel through thresholds.",
+      "Trained on the benchmark CICIDS2017 dataset containing DDoS, scans, and brute-force events. We achieve 98.6% F1 score, handling class imbalance through dynamic sample weights.",
+      "As time goes by, network traffic patterns change—this is concept drift. To keep the model accurate, our drift detector runs Kullback-Leibler Divergence on histograms of incoming features against the training baseline. If divergence exceeds 0.1, it flags a drift event to trigger retraining.",
+      "To deploy a new model without shutting down, we watch the model file modification time. When a new file is written, we load it into memory and swap the pointer in RAM in under 1 millisecond. Zero packet drops, zero downtime.",
+      "The classifier is mute. The LLM Detective reads the footprints and generates structured JSON threat briefs. To prevent costly API token usage, it operates on a 3-tier strategy: check cache first, then API, and fall back to local heuristics.",
+      "Continuous metrics rarely match. We group numbers into rounded buckets to maximize cache hit rates, avoiding redundant LLM costs on duplicate traffic profiles.",
+      "To protect our API budget during DDoS floods, a 60-second Redis cooldown locks duplicate LLM calls, while the firewall blocks the IP silently.",
+      "We secure automation with human veto power. Alerts trigger a 60-second Redis watchdog timer. The analyst can block manually, or let it expire to trigger auto-block (fail-secure).",
+      "Let's launch a simulation. Trigger DDoS to see packet rates and bandwidth spike. In a live run, this data populates Redis streams and alerts analysts.",
+      "In summary, CypherGuard delivers lightweight 5ms checking locally, explainable threat briefs via LLMs, and robust fallbacks to keep networks secure."
+    ];
+
+    const footprints = [
+      { name: "Flow Packets/s", key: "packets_per_sec", desc: "Frequency of packet arrival. Spikes during port scans and SYN floods." },
+      { name: "Flow Bytes/s", key: "bytes_per_sec", desc: "Volume of bytes per second. Indicator of high-bandwidth volumetric DDoS attacks." },
+      { name: "Avg Packet Size", key: "avg_packet_size", desc: "Average size of packets. Low values imply scanning probes; high values imply file extraction." },
+      { name: "Flow Duration", key: "flow_duration", desc: "Lifetime of the flow in seconds. Scans are bursty; normal sessions are sustained." },
+      { name: "Packet Size Std", key: "fwd_pkt_len_std", desc: "Variation in sizes. A standard deviation near 0 indicates uniform automated script patterns." },
+      { name: "IAT Mean / Std", key: "flow_iat_mean / std", desc: "Inter-arrival timings. Automated tools fire packets at exact millisecond spacing." }
+    ];
+
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const notesContent = document.getElementById('notes-content');
+    const notesPanel = document.getElementById('notes-panel');
+
+    // Initialize nodes on Slide 1
+    const gridContainer = document.getElementById('grid-nodes');
+    for (let i = 0; i < 20; i++) {
+      const node = document.createElement('div');
+      node.className = 'grid-node';
+      node.innerHTML = `<i data-lucide="monitor" style="width:20px; height:20px;"></i>`;
+      gridContainer.appendChild(node);
+    }
+    
+    // Periodically flag nodes as hacked on Slide 1
+    setInterval(() => {
+      const nodes = document.querySelectorAll('.grid-node');
+      const idx = Math.floor(Math.random() * nodes.length);
+      nodes[idx].classList.toggle('hacked');
+    }, 2000);
+
+    function showSlide(index) {
+      slides[currentSlide].classList.remove('active');
+      currentSlide = index;
+      slides[currentSlide].classList.add('active');
+      notesContent.textContent = speakerNotes[currentSlide];
+      
+      // Update pipeline steps dynamically on Slide 3
+      if (currentSlide === 2) {
+        let step = 1;
+        const interval = setInterval(() => {
+          document.querySelectorAll('.pipe-step-card').forEach((c, i) => {
+            c.classList.toggle('active', i === (step - 1));
+          });
+          step = step === 3 ? 1 : step + 1;
+          if (currentSlide !== 2) clearInterval(interval);
+        }, 2000);
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < slides.length - 1) {
+        showSlide(currentSlide + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        showSlide(currentSlide - 1);
+      }
+    }
+
+    function toggleSpeakerNotes() {
+      notesPanel.classList.toggle('active');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+      if (e.key === 'ArrowLeft') prevSlide();
+      if (e.key === 's' || e.key === 'S') toggleSpeakerNotes();
+    });
+
+    // Footprints selection (Slide 5)
+    function showFootprint(idx, el) {
+      document.querySelectorAll('.footprint-card').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      
+      const item = footprints[idx];
+      document.getElementById('footprint-name').textContent = item.name;
+      document.getElementById('footprint-key').textContent = "`" + item.key + "`";
+      document.getElementById('footprint-desc').textContent = item.desc;
+    }
+
+    // Toggle lock slide 2
+    let lockState = true;
+    function toggleLock() {
+      const container = document.getElementById('lock-icon-container');
+      lockState = !lockState;
+      if (lockState) {
+        container.innerHTML = `<i data-lucide="lock" style="width:100px; height:100px; color: var(--accent-red);"></i>`;
+      } else {
+        container.innerHTML = `<i data-lucide="lock-open" style="width:100px; height:100px; color: var(--accent-green);"></i>`;
+      }
+      lucide.createIcons();
+    }
+
+    // Slide 4 window animation
+    let windowPos = 10;
+    function slideWindow() {
+      const block = document.getElementById('slider-block');
+      windowPos = windowPos === 10 ? 150 : 10;
+      block.style.left = windowPos + "px";
+    }
+
+    // Slide 7 tree sorting machine
+    function runSortingMachine() {
+      const p = document.getElementById('p-dot');
+      p.style.opacity = 1;
+      p.style.top = "0px";
+      
+      setTimeout(() => {
+        // travel down to left branch
+        p.style.top = "50px";
+        p.style.left = "calc(50% - 130px)";
+        document.getElementById('slot-2').classList.add('active');
+      }, 800);
+
+      setTimeout(() => {
+        p.style.top = "120px";
+        p.style.opacity = 0;
+        document.getElementById('slot-2').classList.remove('active');
+        alert("ML Decision Completed: Threat Classified as Malicious (Confidence 98.6%)");
+        p.style.top = "-20px";
+        p.style.left = "calc(50% - 8px)";
+      }, 1600);
+    }
+
+    // Slide 9 concept drift simulator
+    function simulateDrift() {
+      const el = document.getElementById('drift-status');
+      el.innerHTML = "Analyzing traffic distributions...";
+      el.style.borderColor = "var(--accent-purple)";
+      el.style.color = "var(--accent-purple)";
+      el.style.background = "rgba(188,52,250,0.1)";
+      
+      setTimeout(() => {
+        el.innerHTML = "ALERT: KL Divergence = 0.185 (DRIFT DETECTED)<br/><span style='font-size:0.8rem; text-transform:uppercase;'>Triggering Retrain Loop</span>";
+        el.style.borderColor = "var(--accent-red)";
+        el.style.color = "var(--accent-red)";
+        el.style.background = "rgba(255,59,48,0.1)";
+      }, 2000);
+    }
+
+    // Slide 10 model swap simulator
+    function simulateModelSwap() {
+      const el = document.getElementById('weapon-status');
+      el.textContent = "Deploying Model (v2)...";
+      el.style.borderColor = "var(--accent-purple)";
+      el.style.color = "var(--accent-purple)";
+      el.style.background = "rgba(188,52,250,0.1)";
+      
+      setTimeout(() => {
+        el.textContent = "Swapped! Active Model: model.joblib (v2)";
+        el.style.borderColor = "var(--accent-green)";
+        el.style.color = "var(--accent-green)";
+        el.style.background = "rgba(52,199,89,0.1)";
+      }, 2000);
+    }
+
+    // Slide 11 tab switcher
+    function switchTab(idx, el) {
+      document.querySelectorAll('.tab-header').forEach(h => h.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      
+      el.classList.add('active');
+      document.getElementById('pane-' + idx).classList.add('active');
+    }
+
+    // Slide 14 human loop watchdog
+    let wdTimer = null;
+    let wdCount = 60;
+    function analystBlock() {
+      clearInterval(wdTimer);
+      document.getElementById('watchdog-time').textContent = "BLOCKED";
+      document.getElementById('watchdog-time').style.color = "var(--accent-green)";
+    }
+    function resetWatchdog() {
+      clearInterval(wdTimer);
+      wdCount = 60;
+      document.getElementById('watchdog-time').textContent = wdCount + "s";
+      document.getElementById('watchdog-time').style.color = "var(--accent-red)";
+      wdTimer = setInterval(() => {
+        wdCount--;
+        document.getElementById('watchdog-time').textContent = wdCount + "s";
+        if (wdCount === 0) {
+          clearInterval(wdTimer);
+          document.getElementById('watchdog-time').textContent = "AUTO";
+        }
+      }, 1000);
+    }
+
+    // Slide 15 dynamic charts
+    function simulateAttackChart() {
+      const bars = document.querySelectorAll('.sim-chart-bar');
+      const ppsLbl = document.getElementById('pps-lbl');
+      const bpsLbl = document.getElementById('bps-lbl');
+      
+      let seconds = 0;
+      const interval = setInterval(() => {
+        seconds++;
+        bars.forEach(bar => {
+          const height = Math.floor(Math.random() * 80) + 15;
+          bar.style.height = height + "%";
+        });
+        
+        ppsLbl.textContent = Math.floor(Math.random() * 2000) + 3500;
+        bpsLbl.textContent = Math.floor(Math.random() * 50000) + 75000;
+        
+        if (seconds === 10) {
+          clearInterval(interval);
+          ppsLbl.textContent = "0";
+          bpsLbl.textContent = "0";
+          bars.forEach(bar => bar.style.height = "10%");
+        }
+      }, 500);
+    }
+
+    // Initialize lucide icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>
