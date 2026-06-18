@@ -14,7 +14,7 @@
 
 <video src="2026-06-14%2019-21-13.mp4" width="100%" controls></video>
 
-_If the video player above does not load, you can view or download the demo video directly [here](2026-06-14%2019-21-13.mp4](https://drive.google.com/file/d/1yieVtKRwgzPdBeRfOkSOWB1Vui-i5JI2/view?usp=sharing)._
+_If the video player above does not load, you can view or download the demo video directly [here](https://drive.google.com/file/d/1yieVtKRwgzPdBeRfOkSOWB1Vui-i5JI2/view?usp=sharing)._
 
 ---
 
